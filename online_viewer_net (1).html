@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pink Backrooms</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0a0006; font-family: 'Segoe UI', Tahoma, sans-serif; touch-action:none; }
+  #canvas-wrap { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  /* Start screen */
+  #start-screen {
+    position:fixed; inset:0; z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background: radial-gradient(circle at 50% 30%, #ff9ecb 0%, #ff5fa2 35%, #c2186b 70%, #380019 100%);
+    text-align:center; padding:20px;
+    animation: bgpulse 6s ease-in-out infinite;
+  }
+  @keyframes bgpulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(1.15); } }
+  #start-screen h1 {
+    font-size: 2.8em; color:#fff;
+    text-shadow: 0 0 20px #ff2f92, 0 0 40px #ff2f92, 0 4px 0 #7a0040;
+    letter-spacing:3px; margin-bottom:6px; font-weight:800;
+  }
+  #start-screen .sub {
+    color:#ffe0f0; font-size:1em; margin-bottom:28px;
+    text-shadow:0 2px 6px rgba(0,0,0,0.4); max-width:360px; line-height:1.55;
+  }
+  #start-btn {
+    padding:18px 52px; font-size:1.25em; font-weight:700; border:none; border-radius:50px;
+    background: linear-gradient(180deg, #fff 0%, #ffd6ec 100%); color:#c2186b;
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.25), 0 10px 30px rgba(255,0,110,0.6);
+    cursor:pointer; letter-spacing:1px; transition: transform .15s ease;
+  }
+  #start-btn:active { transform: scale(0.94); }
+  .glow-dot { position:absolute; width:8px; height:8px; border-radius:50%; background:#fff; box-shadow:0 0 12px 4px #ff8fc4; animation: floaty 4s ease-in-out infinite; opacity:0.8; }
+  @keyframes floaty { 0%,100% { transform:translateY(0px); opacity:0.4;} 50% { transform:translateY(-30px); opacity:1;} }
+  #hint { position:absolute; bottom:20px; color:#ffd6ec; font-size:0.78em; opacity:0.85; max-width:320px; line-height:1.4; }
+
+  /* HUD controls */
+  #hud { position:fixed; inset:0; z-index:20; display:none; pointer-events:none; }
+  #joystick-zone {
+    position:absolute; left:24px; bottom:24px; width:130px; height:130px; border-radius:50%;
+    background: radial-gradient(circle, rgba(255,110,180,0.18), rgba(255,110,180,0.05));
+    border:2px solid rgba(255,182,217,0.5); pointer-events:auto;
+  }
+  #joystick-knob {
+    position:absolute; left:50%; top:50%; width:56px; height:56px; margin-left:-28px; margin-top:-28px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #ffd6ec, #ff5fa2 70%, #c2186b);
+    box-shadow:0 0 18px rgba(255,95,162,0.8);
+  }
+  #look-zone { position:absolute; right:0; top:0; bottom:0; left:170px; pointer-events:auto; }
+  #crosshair { position:absolute; left:50%; top:50%; width:6px; height:6px; margin:-3px 0 0 -3px; border-radius:50%; background:rgba(255,255,255,0.6); box-shadow:0 0 6px rgba(255,255,255,0.8); }
+  #vignette { position:fixed; inset:0; z-index:15; pointer-events:none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(20,0,10,0.75) 100%); }
+  #topinfo {
+    position:absolute; top:14px; left:0; right:0; text-align:center; color:#ffd6ec;
+    font-size:0.78em; letter-spacing:1px; opacity:0.9; text-shadow:0 0 8px #ff2f92;
+    display:flex; flex-direction:column; gap:4px; align-items:center;
+  }
+  #codeprog { font-size:1.1em; letter-spacing:6px; font-weight:800; color:#fff; text-shadow:0 0 10px #ff2f92; }
+
+  /* Interact button near exit */
+  #interact-btn {
+    position:absolute; left:50%; bottom:150px; transform:translateX(-50%);
+    padding:14px 28px; border-radius:40px; border:2px solid #ffd6ec;
+    background:rgba(255,47,146,0.85); color:#fff; font-weight:700; font-size:1em;
+    display:none; pointer-events:auto; box-shadow:0 0 20px rgba(255,47,146,0.9);
+    animation: pulseBtn 1.2s ease-in-out infinite;
+  }
+  @keyframes pulseBtn { 0%,100%{ transform:translateX(-50%) scale(1);} 50%{ transform:translateX(-50%) scale(1.06);} }
+
+  /* Keypad modal */
+  #keypad-modal {
+    position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:rgba(10,0,6,0.88);
+  }
+  #keypad-box {
+    background:linear-gradient(180deg,#3d0022,#1a000f); border:2px solid #ff5fa2; border-radius:18px;
+    padding:22px; width:280px; text-align:center; box-shadow:0 0 40px rgba(255,47,146,0.5);
+  }
+  #keypad-box h3 { color:#ffd6ec; margin-bottom:10px; letter-spacing:1px; font-size:1.05em; }
+  #keypad-display {
+    background:#12000a; border:1px solid #ff5fa2; border-radius:8px; padding:12px;
+    font-size:1.6em; letter-spacing:10px; color:#fff; margin-bottom:14px; min-height:1.4em;
+  }
+  #keypad-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+  .kp-btn {
+    padding:14px 0; font-size:1.2em; border-radius:10px; border:none; background:#ff5fa2; color:#fff;
+    font-weight:700; cursor:pointer;
+  }
+  .kp-btn:active { background:#c2186b; }
+  #keypad-actions { display:flex; gap:8px; }
+  #keypad-actions button {
+    flex:1; padding:12px 0; border-radius:10px; border:none; font-weight:700; cursor:pointer;
+  }
+  #kp-cancel { background:#555; color:#fff; }
+  #kp-enter { background:#ffd6ec; color:#c2186b; }
+  #keypad-msg { margin-top:10px; font-size:0.85em; color:#ff9ecb; min-height:1.2em; }
+
+  /* Jumpscare overlay */
+  #jump-overlay {
+    position:fixed; inset:0; z-index:80; display:none; pointer-events:none;
+    background:#000; align-items:center; justify-content:center;
+  }
+  #jump-overlay canvas { width:100%; height:100%; }
+  #red-flash { position:fixed; inset:0; z-index:70; background:rgba(200,0,40,0.55); display:none; pointer-events:none; }
+
+  /* Victory */
+  #victory-screen {
+    position:fixed; inset:0; z-index:90; display:none; align-items:center; justify-content:center; flex-direction:column;
+    background: radial-gradient(circle at 50% 40%, #ffb8dd 0%, #ff5fa2 40%, #3d0022 100%); text-align:center; padding:20px;
+  }
+  #victory-screen h1 { color:#fff; font-size:2.4em; text-shadow:0 0 24px #fff; margin-bottom:14px; }
+  #victory-screen p { color:#ffe0f0; margin-bottom:26px; max-width:320px; }
+  #restart-btn { padding:16px 44px; border-radius:50px; border:none; background:#fff; color:#c2186b; font-weight:800; font-size:1.1em; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div id="vignette"></div>
+<div id="red-flash"></div>
+
+<div id="hud">
+  <div id="topinfo">
+    <div>PINK BACKROOMS</div>
+    <div id="codeprog">_ _ _ _</div>
+  </div>
+  <div id="joystick-zone"><div id="joystick-knob"></div></div>
+  <div id="look-zone"><div id="crosshair"></div></div>
+  <button id="interact-btn">🔓 შესვლა</button>
+</div>
+
+<div id="keypad-modal">
+  <div id="keypad-box">
+    <h3>შეიყვანე კოდი</h3>
+    <div id="keypad-display">____</div>
+    <div id="keypad-grid"></div>
+    <div id="keypad-actions">
+      <button id="kp-cancel">გაუქმება</button>
+      <button id="kp-enter">შესვლა</button>
+    </div>
+    <div id="keypad-msg"></div>
+  </div>
+</div>
+
+<div id="jump-overlay"><canvas id="jump-canvas"></canvas></div>
+
+<div id="victory-screen">
+  <h1>გამოქცევა შედგა!</h1>
+  <p>წარმატებით გახვედი ვარდისფერი უსასრულობიდან... ან ეს ასეც ჰგონია?</p>
+  <button id="restart-btn">თავიდან თამაში</button>
+</div>
+
+<div id="start-screen">
+  <div class="glow-dot" style="left:20%; top:25%; animation-delay:0s;"></div>
+  <div class="glow-dot" style="left:75%; top:35%; animation-delay:1s;"></div>
+  <div class="glow-dot" style="left:35%; top:70%; animation-delay:2s;"></div>
+  <div class="glow-dot" style="left:65%; top:65%; animation-delay:1.5s;"></div>
+  <h1>PINK BACKROOMS</h1>
+  <div class="sub">დაიკარგე უსასრულო ვარდისფერ დერეფნებში. იპოვე 4 ციფრი, ამოხსენი კოდი და გაექეცი გამოსასვლელამდე — მაგრამ ფრთხილად, აქ მარტო არ ხარ... ტელეფონი ჰორიზონტალურად დაიჭირე.</div>
+  <button id="start-btn">დაწყება</button>
+  <div id="hint">მარცხნივ — მოძრაობა 🕹️ · ეკრანზე თითის გადატარება — მიმოხედვა 👁️ · იპოვე ციფრები და შედი კოდით გამოსასვლელში</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  let scene, camera, renderer, clock;
+  let player = { x: 2, z: 2, yaw: 0, pitch: 0 };
+  const CELL = 5;
+  const GRID = 23;
+  let maze = [];
+  let walls = [];
+  let audioCtx = null;
+
+  let codeSlots = [null,null,null,null];
+  let pickups = [];
+  let trapCells = [];
+  let exitCell = null;
+  let exitMesh = null;
+  let gameWon = false;
+
+  let shakeUntil = 0;
+  let shakeMag = 0;
+
+  // ---------- Maze generation ----------
+  function genMaze(size){
+    const g = [];
+    for(let i=0;i<size;i++){ g.push(new Array(size).fill(1)); }
+    function carve(cx, cy){
+      g[cy][cx] = 0;
+      const dirs = [[0,-2],[0,2],[-2,0],[2,0]];
+      for(let i=dirs.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [dirs[i],dirs[j]] = [dirs[j],dirs[i]];
+      }
+      for(const [dx,dy] of dirs){
+        const nx = cx+dx, ny = cy+dy;
+        if(nx>0 && ny>0 && nx<size-1 && ny<size-1 && g[ny][nx]===1){
+          g[cy+dy/2][cx+dx/2] = 0;
+          carve(nx, ny);
+        }
+      }
+    }
+    carve(1,1);
+    for(let y=1;y<size-1;y++){
+      for(let x=1;x<size-1;x++){
+        if(g[y][x]===1 && Math.random() < 0.16){ g[y][x] = 0; }
+      }
+    }
+    return g;
+  }
+
+  function openCells(g){
+    const list = [];
+    for(let y=1;y<g.length-1;y++){
+      for(let x=1;x<g.length-1;x++){
+        if(g[y][x]===0) list.push({x,y});
+      }
+    }
+    return list;
+  }
+
+  function dist2(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+
+  // ---------- Textures ----------
+  function digitTexture(digit, label){
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = 'rgba(255,20,120,0.15)';
+    ctx.beginPath(); ctx.arc(128,128,120,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#ff5fa2'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.arc(128,128,110,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 120px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#ff2f92'; ctx.shadowBlur = 30;
+    ctx.fillText(String(digit), 128, 140);
+    ctx.font = 'bold 34px sans-serif';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#ffd6ec';
+    ctx.fillText(label, 128, 40);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function exitTexture(){
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,256,128);
+    ctx.fillStyle = '#39ff14';
+    ctx.font = 'bold 56px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline='middle';
+    ctx.shadowColor = '#39ff14'; ctx.shadowBlur = 24;
+    ctx.fillText('EXIT', 128, 64);
+    return new THREE.CanvasTexture(c);
+  }
+
+  // ---------- Scene setup ----------
+  function init(){
+    clock = new THREE.Clock();
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2b0018);
+    scene.fog = new THREE.FogExp2(0x3d0022, 0.038);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 200);
+
+    renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.getElementById('canvas-wrap').appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffb3d9, 0.5));
+    scene.add(new THREE.HemisphereLight(0xffc2e0, 0x7a0040, 0.55));
+
+    maze = genMaze(GRID);
+    const open = openCells(maze);
+
+    // start cell = first open cell
+    const startCell = open[0];
+    player.x = startCell.x*CELL + CELL/2;
+    player.z = startCell.y*CELL + CELL/2;
+
+    // exit = farthest open cell from start
+    let farthest = open[0], best = -1;
+    for(const c of open){
+      const d = dist2(c, startCell);
+      if(d > best){ best = d; farthest = c; }
+    }
+    exitCell = farthest;
+
+    // pickups: 4 cells reasonably far from start, spread out
+    const candidates = open
+      .filter(c => dist2(c, startCell) > GRID*0.35 && dist2(c, exitCell) > 2)
+      .sort(()=>Math.random()-0.5);
+    const chosenPickups = candidates.slice(0, 4);
+    const digits = [];
+    for(let i=0;i<4;i++) digits.push(Math.floor(Math.random()*10));
+
+    // traps: 4 random open cells away from start/exit/pickups
+    const usedKeys = new Set([`${startCell.x},${startCell.y}`, `${exitCell.x},${exitCell.y}`]);
+    chosenPickups.forEach(p=>usedKeys.add(`${p.x},${p.y}`));
+    const trapCandidates = open.filter(c => !usedKeys.has(`${c.x},${c.y}`) && dist2(c,startCell) > 3)
+      .sort(()=>Math.random()-0.5);
+    trapCells = trapCandidates.slice(0, 5).map(c => ({...c, triggered:false}));
+
+    buildMaze(maze);
+    buildPickups(chosenPickups, digits);
+    buildExit(exitCell);
+
+    camera.position.set(player.x, 1.6, player.z);
+    window.addEventListener('resize', onResize);
+
+    // ambient jumpscare loop
+    scheduleAmbientScare();
+  }
+
+  function pinkWallMaterial(){
+    return new THREE.MeshStandardMaterial({ color: 0xff6fb0, roughness: 0.85, metalness: 0.05, emissive: 0x33001a, emissiveIntensity: 0.15 });
+  }
+  function floorMaterial(){ return new THREE.MeshStandardMaterial({ color: 0xd6377e, roughness: 0.95 }); }
+  function ceilMaterial(){ return new THREE.MeshStandardMaterial({ color: 0xffd9ec, roughness: 0.9, emissive: 0xffaad4, emissiveIntensity: 0.08 }); }
+
+  function buildMaze(g){
+    const size = g.length;
+    const floorGeo = new THREE.PlaneGeometry(size*CELL, size*CELL);
+    const floor = new THREE.Mesh(floorGeo, floorMaterial());
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set(size*CELL/2, 0, size*CELL/2);
+    scene.add(floor);
+
+    const ceil = new THREE.Mesh(floorGeo, ceilMaterial());
+    ceil.rotation.x = Math.PI/2;
+    ceil.position.set(size*CELL/2, 3.2, size*CELL/2);
+    scene.add(ceil);
+
+    let wallCount = 0;
+    for(let y=0;y<size;y++) for(let x=0;x<size;x++) if(g[y][x]===1) wallCount++;
+
+    const wallGeo = new THREE.BoxGeometry(CELL, 3.2, CELL);
+    const inst = new THREE.InstancedMesh(wallGeo, pinkWallMaterial(), wallCount);
+    const dummy = new THREE.Object3D();
+    let idx = 0;
+    for(let y=0;y<size;y++){
+      for(let x=0;x<size;x++){
+        if(g[y][x]===1){
+          dummy.position.set(x*CELL+CELL/2, 1.6, y*CELL+CELL/2);
+          dummy.updateMatrix();
+          inst.setMatrixAt(idx, dummy.matrix);
+          idx++;
+          walls.push({minX: x*CELL, maxX:(x+1)*CELL, minZ:y*CELL, maxZ:(y+1)*CELL});
+        }
+      }
+    }
+    inst.instanceMatrix.needsUpdate = true;
+    scene.add(inst);
+
+    // scattered pink lights
+    const open = openCells(g);
+    let lightCount = 0;
+    for(const c of open){
+      if(Math.random() < 0.08 && lightCount < 34){
+        const pl = new THREE.PointLight(0xff2f92, 1.5, 10, 2);
+        pl.position.set(c.x*CELL+CELL/2, 2.8, c.y*CELL+CELL/2);
+        pl.userData.flicker = Math.random() < 0.3;
+        pl.userData.baseIntensity = pl.intensity;
+        scene.add(pl);
+        flickerLights.push(pl);
+        const fixture = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshBasicMaterial({ color:0xffe0f2 }));
+        fixture.position.copy(pl.position);
+        scene.add(fixture);
+        lightCount++;
+      }
+    }
+  }
+
+  const flickerLights = [];
+
+  function buildPickups(cells, digits){
+    pickups = [];
+    cells.forEach((c, i)=>{
+      const tex = digitTexture(digits[i], `#${i+1}`);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent:true });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(1.1,1.1,1.1);
+      sprite.position.set(c.x*CELL+CELL/2, 1.5, c.y*CELL+CELL/2);
+      scene.add(sprite);
+      pickups.push({ mesh: sprite, x: c.x*CELL+CELL/2, z: c.y*CELL+CELL/2, slot: i, digit: digits[i], collected:false });
+    });
+  }
+
+  function buildExit(cell){
+    const tex = exitTexture();
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent:true });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(2,1,1);
+    sprite.position.set(cell.x*CELL+CELL/2, 2.2, cell.y*CELL+CELL/2);
+    scene.add(sprite);
+    exitMesh = sprite;
+
+    const doorGlow = new THREE.PointLight(0x39ff14, 1.2, 8, 2);
+    doorGlow.position.set(cell.x*CELL+CELL/2, 1.5, cell.y*CELL+CELL/2);
+    scene.add(doorGlow);
+  }
+
+  function collides(nx, nz){
+    const r = 0.35;
+    for(const w of walls){
+      if(nx + r > w.minX && nx - r < w.maxX && nz + r > w.minZ && nz - r < w.maxZ) return true;
+    }
+    return false;
+  }
+
+  function onResize(){
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // ---------- Controls ----------
+  let joyActive = false, joyId = null, joyStartX=0, joyStartY=0, joyVec={x:0,y:0};
+  let lookActive = false, lookId = null, lookLastX=0, lookLastY=0;
+
+  function setupControls(){
+    const joyZone = document.getElementById('joystick-zone');
+    const joyKnob = document.getElementById('joystick-knob');
+    const lookZone = document.getElementById('look-zone');
+    const maxR = 45;
+
+    joyZone.addEventListener('touchstart', (e)=>{
+      const t = e.changedTouches[0];
+      joyActive = true; joyId = t.identifier;
+      const rect = joyZone.getBoundingClientRect();
+      joyStartX = rect.left + rect.width/2;
+      joyStartY = rect.top + rect.height/2;
+      e.preventDefault();
+    }, {passive:false});
+
+    window.addEventListener('touchmove', (e)=>{
+      for(const t of e.changedTouches){
+        if(joyActive && t.identifier===joyId){
+          let dx = t.clientX - joyStartX;
+          let dy = t.clientY - joyStartY;
+          const dist = Math.min(Math.hypot(dx,dy), maxR);
+          const ang = Math.atan2(dy,dx);
+          dx = Math.cos(ang)*dist; dy = Math.sin(ang)*dist;
+          joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+          joyVec.x = dx/maxR; joyVec.y = dy/maxR;
+        }
+        if(lookActive && t.identifier===lookId){
+          const dx = t.clientX - lookLastX;
+          const dy = t.clientY - lookLastY;
+          lookLastX = t.clientX; lookLastY = t.clientY;
+          player.yaw -= dx * 0.0045;
+          player.pitch -= dy * 0.0045;
+          player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch));
+        }
+      }
+      e.preventDefault();
+    }, {passive:false});
+
+    window.addEventListener('touchend', (e)=>{
+      for(const t of e.changedTouches){
+        if(joyActive && t.identifier===joyId){ joyActive = false; joyId=null; joyVec={x:0,y:0}; joyKnob.style.transform = `translate(0px,0px)`; }
+        if(lookActive && t.identifier===lookId){ lookActive = false; lookId=null; }
+      }
+    });
+
+    lookZone.addEventListener('touchstart', (e)=>{
+      const t = e.changedTouches[0];
+      lookActive = true; lookId = t.identifier;
+      lookLastX = t.clientX; lookLastY = t.clientY;
+      e.preventDefault();
+    }, {passive:false});
+
+    let mouseDown = false, mLastX=0, mLastY=0;
+    window.addEventListener('mousedown', (e)=>{ mouseDown=true; mLastX=e.clientX; mLastY=e.clientY; });
+    window.addEventListener('mouseup', ()=>{ mouseDown=false; });
+    window.addEventListener('mousemove', (e)=>{
+      if(mouseDown){
+        const dx = e.clientX-mLastX, dy = e.clientY-mLastY;
+        mLastX=e.clientX; mLastY=e.clientY;
+        player.yaw -= dx*0.0045;
+        player.pitch -= dy*0.0045;
+        player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch));
+      }
+    });
+    const keys = {};
+    window.addEventListener('keydown', (e)=> keys[e.key.toLowerCase()]=true);
+    window.addEventListener('keyup', (e)=> keys[e.key.toLowerCase()]=false);
+    window._keys = keys;
+  }
+
+  // ---------- Audio ----------
+  function ensureAudio(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playScareSound(big){
+    if(!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const dur = big ? 0.7 : 0.4;
+    const bufferSize = Math.floor(audioCtx.sampleRate * dur);
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * Math.exp(-i/bufferSize*3); }
+    const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+    const noiseGain = audioCtx.createGain(); noiseGain.gain.value = big ? 0.7 : 0.4;
+    noise.connect(noiseGain).connect(audioCtx.destination);
+    noise.start();
+
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(big ? 1800 : 1200, now);
+    osc.frequency.exponentialRampToValueAtTime(70, now+dur);
+    const oscGain = audioCtx.createGain();
+    oscGain.gain.setValueAtTime(big ? 0.45 : 0.3, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    osc.connect(oscGain).connect(audioCtx.destination);
+    osc.start(now); osc.stop(now+dur);
+  }
+
+  function playBuzz(){
+    if(!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(140, now);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.25, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now+0.35);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(now); osc.stop(now+0.35);
+  }
+
+  // ---------- Jumpscare visuals ----------
+  const jumpCanvas = document.getElementById('jump-canvas');
+  const jumpOverlay = document.getElementById('jump-overlay');
+  const redFlash = document.getElementById('red-flash');
+
+  function drawScaryFace(){
+    jumpCanvas.width = window.innerWidth;
+    jumpCanvas.height = window.innerHeight;
+    const ctx = jumpCanvas.getContext('2d');
+    const w = jumpCanvas.width, h = jumpCanvas.height;
+    ctx.fillStyle = '#050002';
+    ctx.fillRect(0,0,w,h);
+    const cx = w/2 + (Math.random()*40-20);
+    const cy = h/2 + (Math.random()*30-15);
+
+    // face silhouette
+    ctx.fillStyle = '#1a0008';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w*0.22, h*0.32, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // eyes
+    for(const side of [-1,1]){
+      const ex = cx + side*w*0.09;
+      const ey = cy - h*0.04;
+      const grad = ctx.createRadialGradient(ex,ey,2,ex,ey,40);
+      grad.addColorStop(0, '#ff0022');
+      grad.addColorStop(1, 'rgba(255,0,30,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(ex,ey,40,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.ellipse(ex,ey, 14, 8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(ex,ey,4,0,Math.PI*2); ctx.fill();
+    }
+
+    // jagged mouth
+    ctx.strokeStyle = '#7a0010';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx - w*0.08, cy + h*0.14);
+    for(let i=0;i<8;i++){
+      const mx = cx - w*0.08 + (w*0.16)*(i/7);
+      const my = cy + h*0.14 + (i%2===0 ? 14 : -10);
+      ctx.lineTo(mx,my);
+    }
+    ctx.stroke();
+
+    // scratchy static lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    for(let i=0;i<60;i++){
+      ctx.beginPath();
+      ctx.moveTo(Math.random()*w, Math.random()*h);
+      ctx.lineTo(Math.random()*w, Math.random()*h);
+      ctx.stroke();
+    }
+  }
+
+  let scareActive = false;
+  function triggerJumpscare(big){
+    if(scareActive || gameWon) return;
+    scareActive = true;
+    ensureAudio();
+    drawScaryFace();
+    jumpOverlay.style.display = 'flex';
+    redFlash.style.display = 'block';
+    playScareSound(big);
+
+    shakeUntil = performance.now() + (big ? 900 : 500);
+    shakeMag = big ? 0.08 : 0.04;
+
+    let flickers = 0;
+    const maxFlickers = big ? 5 : 3;
+    const flickerInt = setInterval(()=>{
+      jumpOverlay.style.opacity = jumpOverlay.style.opacity === '0' ? '1' : '0';
+      flickers++;
+      if(flickers >= maxFlickers*2){
+        clearInterval(flickerInt);
+        jumpOverlay.style.display = 'none';
+        jumpOverlay.style.opacity = '1';
+        redFlash.style.display = 'none';
+        scareActive = false;
+      }
+    }, 90);
+  }
+
+  function scheduleAmbientScare(){
+    const delay = 22000 + Math.random()*20000;
+    setTimeout(()=>{
+      if(!gameWon){
+        triggerJumpscare(false);
+      }
+      scheduleAmbientScare();
+    }, delay);
+  }
+
+  // ---------- HUD / interaction ----------
+  const interactBtn = document.getElementById('interact-btn');
+  const keypadModal = document.getElementById('keypad-modal');
+  const keypadDisplay = document.getElementById('keypad-display');
+  const keypadMsg = document.getElementById('keypad-msg');
+  const codeprog = document.getElementById('codeprog');
+  let typedCode = '';
+
+  function buildKeypad(){
+    const grid = document.getElementById('keypad-grid');
+    const layout = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    layout.forEach(k=>{
+      const btn = document.createElement('button');
+      btn.className = 'kp-btn';
+      btn.textContent = k;
+      if(k===''){ btn.style.visibility='hidden'; }
+      btn.addEventListener('click', ()=>{
+        if(k === '⌫'){ typedCode = typedCode.slice(0,-1); }
+        else if(k !== '' && typedCode.length < 4){ typedCode += k; }
+        keypadDisplay.textContent = typedCode.padEnd(4,'_');
+      });
+      grid.appendChild(btn);
+    });
+  }
+  buildKeypad();
+
+  document.getElementById('kp-cancel').addEventListener('click', ()=>{
+    keypadModal.style.display = 'none';
+    typedCode = ''; keypadDisplay.textContent = '____'; keypadMsg.textContent='';
+  });
+
+  document.getElementById('kp-enter').addEventListener('click', ()=>{
+    if(codeSlots.includes(null)){
+      keypadMsg.textContent = 'ჯერ ყველა ციფრი არაა ნაპოვნი!';
+      return;
+    }
+    const correct = codeSlots.join('');
+    if(typedCode === correct){
+      keypadModal.style.display = 'none';
+      winGame();
+    } else {
+      keypadMsg.textContent = 'არასწორი კოდი!';
+      playBuzz();
+      typedCode = '';
+      keypadDisplay.textContent = '____';
+      triggerJumpscare(true);
+    }
+  });
+
+  interactBtn.addEventListener('click', ()=>{
+    typedCode = '';
+    keypadDisplay.textContent = '____';
+    keypadMsg.textContent = '';
+    keypadModal.style.display = 'flex';
+  });
+
+  function updateCodeHud(){
+    codeprog.textContent = codeSlots.map(d => d===null ? '_' : d).join(' ');
+  }
+
+  function winGame(){
+    gameWon = true;
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('victory-screen').style.display = 'flex';
+  }
+
+  document.getElementById('restart-btn').addEventListener('click', ()=>{
+    location.reload();
+  });
+
+  // ---------- Update loop ----------
+  function update(dt){
+    if(gameWon) return;
+    let vx = joyVec.x, vy = joyVec.y;
+    const k = window._keys || {};
+    if(k['w']) vy = -1;
+    if(k['s']) vy = 1;
+    if(k['a']) vx = -1;
+    if(k['d']) vx = 1;
+
+    const speed = 3.4;
+    if(Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05){
+      const forward = { x: Math.sin(player.yaw), z: Math.cos(player.yaw) };
+      const right = { x: Math.cos(player.yaw), z: -Math.sin(player.yaw) };
+      const moveX = (forward.x * (-vy) + right.x * (vx)) * speed * dt;
+      const moveZ = (forward.z * (-vy) + right.z * (vx)) * speed * dt;
+      const nx = player.x + moveX;
+      const nz = player.z + moveZ;
+      if(!collides(nx, player.z)) player.x = nx;
+      if(!collides(player.x, nz)) player.z = nz;
+    }
+
+    // pickups
+    for(const p of pickups){
+      if(!p.collected){
+        const d = Math.hypot(player.x-p.x, player.z-p.z);
+        if(d < 1.3){
+          p.collected = true;
+          codeSlots[p.slot] = p.digit;
+          updateCodeHud();
+          scene.remove(p.mesh);
+        } else {
+          p.mesh.material.rotation += dt*0.5;
+        }
+      }
+    }
+
+    // traps
+    for(const t of trapCells){
+      if(!t.triggered){
+        const tx = t.x*CELL+CELL/2, tz = t.y*CELL+CELL/2;
+        const d = Math.hypot(player.x-tx, player.z-tz);
+        if(d < 1.6){
+          t.triggered = true;
+          triggerJumpscare(true);
+          // push player back slightly
+          const ang = Math.atan2(player.z-tz, player.x-tx);
+          player.x += Math.cos(ang)*1.5;
+          player.z += Math.sin(ang)*1.5;
+        }
+      }
+    }
+
+    // exit proximity
+    if(exitCell){
+      const ex = exitCell.x*CELL+CELL/2, ez = exitCell.y*CELL+CELL/2;
+      const d = Math.hypot(player.x-ex, player.z-ez);
+      interactBtn.style.display = d < 2.5 ? 'block' : 'none';
+    }
+
+    // flicker lights
+    const t = performance.now()*0.001;
+    for(const l of flickerLights){
+      if(l.userData.flicker){
+        l.intensity = l.userData.baseIntensity * (0.5 + 0.5*Math.abs(Math.sin(t*8 + l.id)));
+      }
+    }
+
+    camera.position.set(player.x, 1.6, player.z);
+    camera.rotation.order = 'YXZ';
+    let sx = 0, sy = 0;
+    if(performance.now() < shakeUntil){
+      sx = (Math.random()*2-1) * shakeMag;
+      sy = (Math.random()*2-1) * shakeMag;
+    }
+    camera.rotation.y = player.yaw + sx;
+    camera.rotation.x = player.pitch + sy;
+  }
+
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    update(dt);
+    renderer.render(scene, camera);
+  }
+
+  document.getElementById('start-btn').addEventListener('click', function(){
+    ensureAudio();
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('hud').style.display = 'block';
+    init();
+    setupControls();
+    updateCodeHud();
+    animate();
+  });
+})();
+</script>
+</body>
+</html>
